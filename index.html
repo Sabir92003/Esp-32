@@ -113,32 +113,35 @@
         typeWriter();
     </script>
 
-    <!-- 🌐 FETCH DATA FROM ESP32 BACKEND -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- 🌐 FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-    // 1. Your Firebase Configuration
+    // Firebase Configuration
     const firebaseConfig = {
         databaseURL: "https://esp32-dht22-1dcca-default-rtdb.firebaseio.com/"
     };
 
-    // 2. Initialize Firebase
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 3. Listen for Live Data
-    // We point to "esp32/temp" and "esp32/hum" just like in your Arduino code
-    db.ref("esp32/temp").on("value", (snapshot) => {
-        const tempValue = snapshot.val();
-        document.getElementById("temp").innerText = tempValue ? tempValue.toFixed(1) : "--";
-    });
+    // 🔴 READ FULL esp32 NODE
+    db.ref("esp32").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
 
-    db.ref("esp32/hum").on("value", (snapshot) => {
-        const humValue = snapshot.val();
-        document.getElementById("hum").innerText = humValue ? humValue.toFixed(1) : "--";
+        // Temperature
+        document.getElementById("temp").innerText =
+            data.temperature !== undefined ? data.temperature.toFixed(1) : "--";
+
+        // Humidity
+        document.getElementById("hum").innerText =
+            data.humidity !== undefined ? data.humidity.toFixed(1) : "--";
     });
 </script>
+
 
 </body>
 
