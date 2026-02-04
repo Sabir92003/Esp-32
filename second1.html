@@ -106,7 +106,7 @@ const humChart = new Chart(document.getElementById('humChart'), {
     options: commonOptions
 });
 
-db.ref("esp32").on("value", (snapshot) => {
+db.ref("esp32_combined").on("value", (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
     const ts = new Date().toLocaleTimeString();
