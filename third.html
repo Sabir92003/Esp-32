@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 Air Quality Dashboard</title>
+  <title>Persistent ESP32 Air Dashboard</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -20,7 +20,6 @@
     .btn-back { padding: 10px 20px; background: #95a5a6; color: white; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
     canvas { max-height: 250px; }
     
-    /* Search & Table UI */
     .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
     input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
     .btn-add { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
@@ -34,6 +33,7 @@
       background: #2c3e50; color: white; border: none; border-radius: 8px; 
       cursor: pointer; margin-top: 20px; transition: 0.3s;
     }
+    .btn-clear { background: #e67e22; color: white; padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-size: 0.8rem;}
   </style>
 </head>
 
@@ -48,12 +48,12 @@
 </div>
 
 <div class="card">
-  <h3>eCO2 Trend (ppm)</h3>
+  <h3>eCO2 Trend (ppm) <button class="btn-clear" onclick="clearHistory('co2')">Reset Graph</button></h3>
   <canvas id="co2Chart"></canvas>
 </div>
 
 <div class="card">
-  <h3>TVOC Trend (ppb)</h3>
+  <h3>TVOC Trend (ppb) <button class="btn-clear" onclick="clearHistory('tvoc')">Reset Graph</button></h3>
   <canvas id="tvocChart"></canvas>
 </div>
 
@@ -81,6 +81,24 @@
 <button class="btn-nav" onclick="location.href='third.html'">Go to PH Page</button>
 
 <script>
+/* ===================== STORAGE LOGIC ===================== */
+// Function to load data from browser storage
+function getStoredData(key) {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : { labels: [], data: [] };
+}
+
+// Function to reset history
+function clearHistory(type) {
+    if(confirm("Clear this graph's history?")) {
+        localStorage.removeItem(type + '_logs');
+        location.reload();
+    }
+}
+
+let co2Stored = getStoredData('co2_logs');
+let tvocStored = getStoredData('tvoc_logs');
+
 /* ===================== FIREBASE & CHART CODE ===================== */
 const firebaseConfig = { databaseURL: "https://esp32-dht22-1dcca-default-rtdb.firebaseio.com/" };
 firebase.initializeApp(firebaseConfig);
@@ -93,13 +111,19 @@ const commonOptions = {
 
 const co2Chart = new Chart(document.getElementById('co2Chart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'eCO2 (ppm)', data: [], borderColor: '#27ae60', fill: true, backgroundColor: 'rgba(39, 174, 96, 0.1)' }] },
+    data: { 
+        labels: co2Stored.labels, 
+        datasets: [{ label: 'eCO2 (ppm)', data: co2Stored.data, borderColor: '#27ae60', fill: true, backgroundColor: 'rgba(39, 174, 96, 0.1)' }] 
+    },
     options: commonOptions
 });
 
 const tvocChart = new Chart(document.getElementById('tvocChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'TVOC (ppb)', data: [], borderColor: '#8e44ad', fill: true, backgroundColor: 'rgba(142, 68, 173, 0.1)' }] },
+    data: { 
+        labels: tvocStored.labels, 
+        datasets: [{ label: 'TVOC (ppb)', data: tvocStored.data, borderColor: '#8e44ad', fill: true, backgroundColor: 'rgba(142, 68, 173, 0.1)' }] 
+    },
     options: commonOptions
 });
 
@@ -113,17 +137,19 @@ db.ref("esp32_combined").on("value", (snapshot) => {
         🧪 <strong>TVOC:</strong> ${data.TVOC ?? '--'} ppb 
     `;
 
-    // Update eCO2 Chart
+    // Update eCO2 Array
     co2Chart.data.labels.push(ts);
     co2Chart.data.datasets[0].data.push(data.eCO2);
-    if (co2Chart.data.labels.length > 20) { co2Chart.data.labels.shift(); co2Chart.data.datasets[0].data.shift(); }
+    if (co2Chart.data.labels.length > 30) { co2Chart.data.labels.shift(); co2Chart.data.datasets[0].data.shift(); }
     co2Chart.update();
+    localStorage.setItem('co2_logs', JSON.stringify({labels: co2Chart.data.labels, data: co2Chart.data.datasets[0].data}));
 
-    // Update TVOC Chart
+    // Update TVOC Array
     tvocChart.data.labels.push(ts);
     tvocChart.data.datasets[0].data.push(data.TVOC);
-    if (tvocChart.data.labels.length > 20) { tvocChart.data.labels.shift(); tvocChart.data.datasets[0].data.shift(); }
+    if (tvocChart.data.labels.length > 30) { tvocChart.data.labels.shift(); tvocChart.data.datasets[0].data.shift(); }
     tvocChart.update();
+    localStorage.setItem('tvoc_logs', JSON.stringify({labels: tvocChart.data.labels, data: tvocChart.data.datasets[0].data}));
 });
 
 /* ===================== CITY AIR QUALITY LOGIC (AQICN) ===================== */
@@ -179,8 +205,7 @@ function removeCity(city) {
 }
 
 refreshAllCities();
-setInterval(refreshAllCities, 300000); // 5 minute refresh
-
+setInterval(refreshAllCities, 300000); 
 </script>
 </body>
 </html>
