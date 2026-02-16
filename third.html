@@ -127,7 +127,7 @@ const tvocChart = new Chart(document.getElementById('tvocChart'), {
     options: commonOptions
 });
 
-db.ref("esp32_combined").on("value", (snapshot) => {
+db.ref("esp32").on("value", (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
     const ts = new Date().toLocaleTimeString();
@@ -209,3 +209,4 @@ setInterval(refreshAllCities, 300000);
 </script>
 </body>
 </html>
+
