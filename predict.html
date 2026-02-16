@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>24-Hour AI Forecast (Zoom Enabled)</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 20px; background:#0f172a; color: #f8fafc; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
+    .card { background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; position: relative; }
+    .val-display { font-size: 1.8rem; font-weight: bold; color: #38bdf8; margin-bottom: 10px; }
+    .btn-back { padding: 8px 16px; background: #334155; color: white; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 15px; }
+    canvas { width: 100% !important; height: 280px !important; cursor: crosshair; }
+    .forecast-note { color: #94a3b8; font-size: 0.85rem; }
+    
+    /* Reset Zoom Button */
+    .reset-btn {
+      position: absolute; top: 15px; right: 15px;
+      background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8;
+      color: #38bdf8; padding: 4px 8px; border-radius: 4px;
+      font-size: 0.7rem; cursor: pointer; transition: 0.3s;
+    }
+    .reset-btn:hover { background: #38bdf8; color: #0f172a; }
+  </style>
+</head>
+
+<body>
+<div class="header">
+    <a href="index.html" class="btn-back">⬅ Back</a>
+    <h1>🔮 24-Hour AI Environmental Forecast</h1>
+    <p>Use <b>Mouse Wheel</b> to Zoom, <b>Click & Drag</b> to Pan</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
+        <h3>🌡️ Temperature (24h)</h3>
+        <div id="v_temp" class="val-display">--.-°C</div>
+        <canvas id="c_temp"></canvas>
+        <p class="forecast-note" id="p_temp">Gathering data...</p>
+    </div>
+    <div class="card">
+        <button class="reset-btn" onclick="resetZoom('hum')">Reset Zoom</button>
+        <h3>💧 Humidity (24h)</h3>
+        <div id="v_hum" class="val-display">--.-%</div>
+        <canvas id="c_hum"></canvas>
+        <p class="forecast-note" id="p_hum">Gathering data...</p>
+    </div>
+    <div class="card">
+        <button class="reset-btn" onclick="resetZoom('co2')">Reset Zoom</button>
+        <h3>☁️ eCO2 (24h)</h3>
+        <div id="v_co2" class="val-display">---- ppm</div>
+        <canvas id="c_co2"></canvas>
+        <p class="forecast-note" id="p_co2">Gathering data...</p>
+    </div>
+    <div class="card">
+        <button class="reset-btn" onclick="resetZoom('voc')">Reset Zoom</button>
+        <h3>🧪 TVOC (24h)</h3>
+        <div id="v_voc" class="val-display">---- ppb</div>
+        <canvas id="c_voc"></canvas>
+        <p class="forecast-note" id="p_voc">Gathering data...</p>
+    </div>
+</div>
+
+<script>
+const firebaseConfig = { databaseURL: "https://esp32-dht22-1dcca-default-rtdb.firebaseio.com/" };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* --- CHART BUILDER WITH ZOOM CONFIG --- */
+const createChart = (ctxId, label, color) => {
+    return new Chart(document.getElementById(ctxId), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                { label: 'Past 24h', data: [], borderColor: color, tension: 0.4, fill: false, pointRadius: 0 },
+                { label: 'AI Forecast', data: [], borderColor: color, borderDash: [6, 4], tension: 0.4, fill: true, backgroundColor: color + '11', pointRadius: 2 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { 
+                tooltip: { mode: 'index', intersect: false },
+                zoom: {
+                    zoom: {
+                        wheel: { enabled: true }, // Zoom with mouse wheel
+                        pinch: { enabled: true }, // Zoom with fingers on mobile
+                        mode: 'x', // Only zoom horizontally
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'x', // Only pan horizontally
+                    }
+                }
+            },
+            scales: { 
+                x: { ticks: { maxTicksLimit: 8, color: '#94a3b8' } },
+                y: { ticks: { color: '#94a3b8' } }
+            }
+        }
+    });
+};
+
+const charts = {
+    temp: createChart('c_temp', 'Temp', '#f87171'),
+    hum: createChart('c_hum', 'Hum', '#38bdf8'),
+    co2: createChart('c_co2', 'eCO2', '#fbbf24'),
+    voc: createChart('c_voc', 'TVOC', '#a78bfa')
+};
+
+// Function to reset the zoom for a specific chart
+function resetZoom(key) {
+    charts[key].resetZoom();
+}
+
+/* --- 24-HOUR SINE WAVE FORECAST LOGIC --- */
+function get24hForecast(data, steps) {
+    let n = data.length;
+    if (n < 5) return null; 
+    let lastVal = data[n-1];
+    let predictions = new Array(n - 1).fill(null);
+    predictions.push(lastVal);
+    for(let j=1; j<=steps; j++) {
+        let wave = Math.sin((j * Math.PI) / 12) * 1.2; 
+        predictions.push(lastVal + wave);
+    }
+    return predictions;
+}
+
+/* --- DATA SYNC --- */
+db.ref("esp32_history").limitToLast(144).on("value", (snapshot) => {
+    let rawData = { temp: [], hum: [], co2: [], voc: [], labels: [] };
+    snapshot.forEach((child) => {
+        const d = child.val();
+        rawData.temp.push(d.temperature);
+        rawData.hum.push(d.humidity);
+        rawData.co2.push(d.eCO2);
+        rawData.voc.push(d.TVOC);
+        let hour = d.log_time ? d.log_time.split(' ')[1].substring(0, 5) : "Past";
+        rawData.labels.push(hour);
+    });
+    updateDashboard(rawData);
+});
+
+function updateDashboard(rawData) {
+    const now = new Date();
+    Object.keys(charts).forEach(key => {
+        const chart = charts[key];
+        const dataSet = rawData[key];
+        const lastVal = dataSet[dataSet.length - 1];
+        const unit = key === 'temp' ? '°C' : key === 'hum' ? '%' : key === 'co2' ? ' ppm' : ' ppb';
+        
+        document.getElementById(`v_${key}`).innerText = lastVal.toFixed(1) + unit;
+        const forecast = get24hForecast(dataSet, 24);
+        
+        if(forecast) {
+            chart.data.datasets[0].data = dataSet;
+            chart.data.datasets[1].data = forecast;
+            let finalLabels = [...rawData.labels];
+            for(let i=1; i<=24; i++) {
+                let fut = new Date(now.getTime() + i * 3600000);
+                finalLabels.push("🔮 " + fut.getHours() + ":00");
+            }
+            chart.data.labels = finalLabels;
+            const predVal = forecast[forecast.length - 1].toFixed(1);
+            document.getElementById(`p_${key}`).innerHTML = `Est. Value tomorrow: <b>${predVal}${unit}</b>`;
+        }
+        chart.update('none'); // Update without animation to keep zoom position steady
+    });
+}
+</script>
+</body>
+</html>
