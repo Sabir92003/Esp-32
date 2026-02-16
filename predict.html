@@ -3,84 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>24-Hour AI Forecast (Vertical Layout)</title>
+  <title>Balanced AI Forecast Dashboard</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
-  
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
   <style>
-    body { font-family: 'Segoe UI', sans-serif; margin: 20px; background:#0f172a; color: #f8fafc; }
-    .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-    
-    /* Changed to 1 column for line-by-line layout */
-    .grid { 
-      display: grid; 
-      grid-template-columns: 1fr; 
-      gap: 30px; 
-      max-width: 1000px; /* Optional: centers the content for better readability */
-      margin: 0 auto;
+    :root {
+      --bg: #0f172a; --card: rgba(30, 41, 59, 0.7); --text: #f8fafc;
+      --border: #334155; --accent: #38bdf8; --glass: blur(10px);
     }
-    
-    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; position: relative; }
-    .val-display { font-size: 2rem; font-weight: bold; color: #38bdf8; margin-bottom: 10px; }
-    .btn-back { padding: 8px 16px; background: #334155; color: white; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 15px; }
-    
-    /* Increased height for the single-row layout */
-    canvas { width: 100% !important; height: 320px !important; cursor: crosshair; }
-    .forecast-note { color: #94a3b8; font-size: 0.9rem; margin-top: 10px; }
-    
-    .reset-btn {
-      position: absolute; top: 20px; right: 20px;
-      background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8;
-      color: #38bdf8; padding: 6px 12px; border-radius: 4px;
-      font-size: 0.75rem; cursor: pointer; transition: 0.3s;
+    [data-theme="light"] {
+      --bg: #f8fafc; --card: rgba(255, 255, 255, 0.8); --text: #0f172a;
+      --border: #cbd5e1; --accent: #0284c7;
     }
-    .reset-btn:hover { background: #38bdf8; color: #0f172a; }
+    body { 
+      font-family: 'Segoe UI', system-ui, sans-serif; 
+      margin: 0; padding: 0; background: var(--bg); color: var(--text); 
+      transition: background 0.4s ease; min-height: 100vh;
+    }
+    .header { 
+      padding: 30px; text-align: center; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100; backdrop-filter: var(--glass);
+    }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%; padding: 20px; box-sizing: border-box; }
+    .card { 
+      background: var(--card); backdrop-filter: var(--glass);
+      padding: 25px; border-radius: 16px; border: 1px solid var(--border); 
+      position: relative;
+    }
+    .val-display { font-size: 2.5rem; font-weight: 800; color: var(--accent); margin: 10px 0; }
+    canvas { width: 100% !important; height: 380px !important; cursor: crosshair; }
+    .controls { position: absolute; top: 20px; right: 20px; }
+    .btn {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent);
+      background: transparent; color: var(--accent); cursor: pointer; font-weight: 600;
+    }
+    .theme-toggle {
+      position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+      width: 50px; height: 50px; border-radius: 50%; background: var(--accent);
+      border: none; color: white; cursor: pointer; font-size: 1.2rem;
+    }
+    .forecast-note { font-weight: 600; color: var(--accent); margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px; }
   </style>
 </head>
 
 <body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+
 <div class="header">
-    <a href="third.html" class="btn-back">⬅ Back</a>
-    <h1>🔮 AI Environmental Forecast</h1>
-    <p>Scroll down to view individual sensor trends</p>
+    <h1>🔮 Pro AI Forecast Dashboard</h1>
+    <p>Left Half: Recorded Data | Right Half: 24h AI Prediction</p>
 </div>
 
 <div class="grid">
     <div class="card">
-        <button class="reset-btn" onclick="resetZoom('temp')">Reset Zoom</button>
-        <h3>🌡️ Temperature Trend (24h)</h3>
+        <div class="controls"><button class="btn" onclick="resetZoom('temp')">Reset View</button></div>
+        <h3>🌡️ Temperature (°C)</h3>
         <div id="v_temp" class="val-display">--.-°C</div>
         <canvas id="c_temp"></canvas>
-        <p class="forecast-note" id="p_temp">Gathering data...</p>
+        <p class="forecast-note" id="p_temp">Analyzing trends...</p>
     </div>
 
     <div class="card">
-        <button class="reset-btn" onclick="resetZoom('hum')">Reset Zoom</button>
-        <h3>💧 Humidity Trend (24h)</h3>
+        <div class="controls"><button class="btn" onclick="resetZoom('hum')">Reset View</button></div>
+        <h3>💧 Humidity (%)</h3>
         <div id="v_hum" class="val-display">--.-%</div>
         <canvas id="c_hum"></canvas>
-        <p class="forecast-note" id="p_hum">Gathering data...</p>
+        <p class="forecast-note" id="p_hum">Analyzing trends...</p>
     </div>
 
     <div class="card">
-        <button class="reset-btn" onclick="resetZoom('co2')">Reset Zoom</button>
-        <h3>☁️ eCO2 Level (24h)</h3>
+        <div class="controls"><button class="btn" onclick="resetZoom('co2')">Reset View</button></div>
+        <h3>☁️ Carbon Dioxide (ppm)</h3>
         <div id="v_co2" class="val-display">---- ppm</div>
         <canvas id="c_co2"></canvas>
-        <p class="forecast-note" id="p_co2">Gathering data...</p>
+        <p class="forecast-note" id="p_co2">Analyzing trends...</p>
     </div>
 
     <div class="card">
-        <button class="reset-btn" onclick="resetZoom('voc')">Reset Zoom</button>
-        <h3>🧪 TVOC Level (24h)</h3>
+        <div class="controls"><button class="btn" onclick="resetZoom('voc')">Reset View</button></div>
+        <h3>🧪 Air Quality (ppb)</h3>
         <div id="v_voc" class="val-display">---- ppb</div>
         <canvas id="c_voc"></canvas>
-        <p class="forecast-note" id="p_voc">Gathering data...</p>
+        <p class="forecast-note" id="p_voc">Analyzing trends...</p>
     </div>
 </div>
 
@@ -89,27 +99,31 @@ const firebaseConfig = { databaseURL: "https://esp32-dht22-1dcca-default-rtdb.fi
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const createChart = (ctxId, label, color) => {
+function toggleTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+}
+
+const createChart = (ctxId, color) => {
     return new Chart(document.getElementById(ctxId), {
         type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                { label: 'Past 24h', data: [], borderColor: color, tension: 0.4, fill: false, pointRadius: 0, borderWidth: 3 },
-                { label: 'AI Forecast', data: [], borderColor: color, borderDash: [6, 4], tension: 0.4, fill: true, backgroundColor: color + '11', pointRadius: 2 }
-            ]
-        },
+        data: { labels: [], datasets: [
+            { label: 'Past 24h', data: [], borderColor: color, tension: 0.4, fill: false, borderWidth: 4, pointRadius: 2 },
+            { label: 'AI Forecast', data: [], borderColor: color, borderDash: [8, 4], tension: 0.4, fill: true, backgroundColor: color + '22', pointRadius: 0 }
+        ]},
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: { 
-                tooltip: { mode: 'index', intersect: false },
+                tooltip: { enabled: true, backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12 },
                 zoom: {
                     zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
                     pan: { enabled: true, mode: 'x' }
                 }
             },
             scales: { 
-                x: { ticks: { maxTicksLimit: 12, color: '#94a3b8' } },
+                x: { ticks: { color: '#94a3b8', maxTicksLimit: 10 } },
                 y: { ticks: { color: '#94a3b8' } }
             }
         }
@@ -117,67 +131,73 @@ const createChart = (ctxId, label, color) => {
 };
 
 const charts = {
-    temp: createChart('c_temp', 'Temp', '#f87171'),
-    hum: createChart('c_hum', 'Hum', '#38bdf8'),
-    co2: createChart('c_co2', 'eCO2', '#fbbf24'),
-    voc: createChart('c_voc', 'TVOC', '#a78bfa')
+    temp: createChart('c_temp', '#f87171'),
+    hum: createChart('c_hum', '#38bdf8'),
+    co2: createChart('c_co2', '#fbbf24'),
+    voc: createChart('c_voc', '#a78bfa')
 };
 
 function resetZoom(key) { charts[key].resetZoom(); }
 
-function get24hForecast(data, steps) {
-    let n = data.length;
-    if (n < 5) return null; 
-    let lastVal = data[n-1];
-    let predictions = new Array(n - 1).fill(null);
-    predictions.push(lastVal);
-    for(let j=1; j<=steps; j++) {
-        let wave = Math.sin((j * Math.PI) / 12) * 1.2; 
-        predictions.push(lastVal + wave);
+// --- AI LOGIC: Predicts based on recent trend ---
+function calculatePrediction(pastData, steps) {
+    if (pastData.length < 2) return [];
+    const lastPoint = pastData[pastData.length - 1];
+    const secondLast = pastData[pastData.length - 2];
+    const trend = lastPoint - secondLast; // Simple linear direction
+    
+    let prediction = [];
+    for (let i = 1; i <= steps; i++) {
+        // AI mix: Last value + trend + a daily sine wave cycle
+        let cycle = Math.sin((i * Math.PI) / 12) * 2; 
+        prediction.push(lastPoint + (trend * i * 0.2) + cycle);
     }
-    return predictions;
+    return prediction;
 }
 
-db.ref("esp32_history").limitToLast(144).on("value", (snapshot) => {
-    let rawData = { temp: [], hum: [], co2: [], voc: [], labels: [] };
-    snapshot.forEach((child) => {
+db.ref("esp32_history").limitToLast(24).on("value", (snapshot) => {
+    let raw = { temp:[], hum:[], co2:[], voc:[], labels:[] };
+    snapshot.forEach(child => {
         const d = child.val();
-        rawData.temp.push(d.temperature);
-        rawData.hum.push(d.humidity);
-        rawData.co2.push(d.eCO2);
-        rawData.voc.push(d.TVOC);
-        let hour = d.log_time ? d.log_time.split(' ')[1].substring(0, 5) : "Past";
-        rawData.labels.push(hour);
+        raw.temp.push(d.temperature);
+        raw.hum.push(d.humidity);
+        raw.co2.push(d.eCO2 || 0);
+        raw.voc.push(d.TVOC || 0);
+        raw.labels.push(d.log_time ? d.log_time.split(' ')[1].substring(0,5) : "Past");
     });
-    updateDashboard(rawData);
-});
 
-function updateDashboard(rawData) {
     const now = new Date();
     Object.keys(charts).forEach(key => {
         const chart = charts[key];
-        const dataSet = rawData[key];
-        const lastVal = dataSet[dataSet.length - 1];
-        const unit = key === 'temp' ? '°C' : key === 'hum' ? '%' : key === 'co2' ? ' ppm' : ' ppb';
+        const dataArr = raw[key];
+        const lastVal = dataArr[dataArr.length-1];
+        const unit = key==='temp'?'°C':key==='hum'?'%':key==='co2'?' ppm':' ppb';
         
         document.getElementById(`v_${key}`).innerText = lastVal.toFixed(1) + unit;
-        const forecast = get24hForecast(dataSet, 24);
+
+        // 1. Setup Data
+        const forecastValues = calculatePrediction(dataArr, 24);
         
-        if(forecast) {
-            chart.data.datasets[0].data = dataSet;
-            chart.data.datasets[1].data = forecast;
-            let finalLabels = [...rawData.labels];
-            for(let i=1; i<=24; i++) {
-                let fut = new Date(now.getTime() + i * 3600000);
-                finalLabels.push("🔮 " + fut.getHours() + ":00");
-            }
-            chart.data.labels = finalLabels;
-            const predVal = forecast[forecast.length - 1].toFixed(1);
-            document.getElementById(`p_${key}`).innerHTML = `Est. Value tomorrow: <b>${predVal}${unit}</b>`;
+        // 2. Align arrays: Forecast dataset must be same length as labels
+        let displayForecast = new Array(dataArr.length - 1).fill(null);
+        displayForecast.push(lastVal); // Connect point
+        displayForecast = displayForecast.concat(forecastValues);
+
+        // 3. Create Future Labels
+        let futureLabels = [...raw.labels];
+        for(let i=1; i<=24; i++) {
+            let fut = new Date(now.getTime() + i * 3600000);
+            futureLabels.push("🔮 " + fut.getHours() + ":00");
         }
+
+        chart.data.labels = futureLabels;
+        chart.data.datasets[0].data = dataArr;
+        chart.data.datasets[1].data = displayForecast;
+        
+        document.getElementById(`p_${key}`).innerHTML = `AI Estimated for tomorrow: <b>${forecastValues[23].toFixed(1)}${unit}</b>`;
         chart.update('none');
     });
-}
+});
 </script>
 </body>
 </html>
