@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Balanced AI Forecast Dashboard</title>
+  <title>Pro AI Forecast Dashboard</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -25,25 +25,64 @@
       margin: 0; padding: 0; background: var(--bg); color: var(--text); 
       transition: background 0.4s ease; min-height: 100vh;
     }
+
+    /* --- NEW NAVIGATION BAR STYLES --- */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: var(--card);
+      backdrop-filter: var(--glass);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .nav-group { display: flex; gap: 10px; }
+    .nav-link {
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+    }
+    .nav-link:hover {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+    .chat-btn {
+      background: rgba(56, 189, 248, 0.1);
+    }
+
     .header { 
-      padding: 30px; text-align: center; border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; z-index: 100; backdrop-filter: var(--glass);
+      padding: 30px; text-align: center; 
+      border-bottom: 1px solid var(--border);
     }
     .grid { display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%; padding: 20px; box-sizing: border-box; }
+    
+    @media (min-width: 768px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+
     .card { 
       background: var(--card); backdrop-filter: var(--glass);
       padding: 25px; border-radius: 16px; border: 1px solid var(--border); 
       position: relative;
     }
     .val-display { font-size: 2.5rem; font-weight: 800; color: var(--accent); margin: 10px 0; }
-    canvas { width: 100% !important; height: 380px !important; cursor: crosshair; }
+    canvas { width: 100% !important; height: 320px !important; cursor: crosshair; }
     .controls { position: absolute; top: 20px; right: 20px; }
     .btn {
-      padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent);
+      padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent);
       background: transparent; color: var(--accent); cursor: pointer; font-weight: 600;
     }
     .theme-toggle {
-      position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+      position: fixed; bottom: 20px; left: 20px; z-index: 1000;
       width: 50px; height: 50px; border-radius: 50%; background: var(--accent);
       border: none; color: white; cursor: pointer; font-size: 1.2rem;
     }
@@ -52,6 +91,13 @@
 </head>
 
 <body>
+
+<nav class="top-nav">
+    <a href="third.html" class="nav-link">⬅ Back</a>
+    <div class="nav-group">
+        <a href="Chat boat.html" class="nav-link chat-btn">🤖 AI Chatbot</a>
+    </div>
+</nav>
 
 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
 
@@ -139,16 +185,14 @@ const charts = {
 
 function resetZoom(key) { charts[key].resetZoom(); }
 
-// --- AI LOGIC: Predicts based on recent trend ---
 function calculatePrediction(pastData, steps) {
     if (pastData.length < 2) return [];
     const lastPoint = pastData[pastData.length - 1];
     const secondLast = pastData[pastData.length - 2];
-    const trend = lastPoint - secondLast; // Simple linear direction
+    const trend = lastPoint - secondLast; 
     
     let prediction = [];
     for (let i = 1; i <= steps; i++) {
-        // AI mix: Last value + trend + a daily sine wave cycle
         let cycle = Math.sin((i * Math.PI) / 12) * 2; 
         prediction.push(lastPoint + (trend * i * 0.2) + cycle);
     }
@@ -170,20 +214,16 @@ db.ref("esp32_history").limitToLast(24).on("value", (snapshot) => {
     Object.keys(charts).forEach(key => {
         const chart = charts[key];
         const dataArr = raw[key];
-        const lastVal = dataArr[dataArr.length-1];
+        const lastVal = dataArr[dataArr.length-1] || 0;
         const unit = key==='temp'?'°C':key==='hum'?'%':key==='co2'?' ppm':' ppb';
         
         document.getElementById(`v_${key}`).innerText = lastVal.toFixed(1) + unit;
 
-        // 1. Setup Data
         const forecastValues = calculatePrediction(dataArr, 24);
-        
-        // 2. Align arrays: Forecast dataset must be same length as labels
         let displayForecast = new Array(dataArr.length - 1).fill(null);
-        displayForecast.push(lastVal); // Connect point
+        displayForecast.push(lastVal);
         displayForecast = displayForecast.concat(forecastValues);
 
-        // 3. Create Future Labels
         let futureLabels = [...raw.labels];
         for(let i=1; i<=24; i++) {
             let fut = new Date(now.getTime() + i * 3600000);
@@ -194,7 +234,8 @@ db.ref("esp32_history").limitToLast(24).on("value", (snapshot) => {
         chart.data.datasets[0].data = dataArr;
         chart.data.datasets[1].data = displayForecast;
         
-        document.getElementById(`p_${key}`).innerHTML = `AI Estimated for tomorrow: <b>${forecastValues[23].toFixed(1)}${unit}</b>`;
+        const finalEst = forecastValues.length > 0 ? forecastValues[23].toFixed(1) : "--";
+        document.getElementById(`p_${key}`).innerHTML = `AI Estimated for tomorrow: <b>${finalEst}${unit}</b>`;
         chart.update('none');
     });
 });
